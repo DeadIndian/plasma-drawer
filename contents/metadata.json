@@ -1,0 +1,20 @@
+{
+    "KPlugin": {
+        "Id": "p-connor.plasma-drawer",
+        "Name": "Plasma Drawer",
+        "Description": "A fullscreen customizable launcher with application directories and krunner-like search",
+        "Version": "2.0.2",
+        "Category": "Application Launchers",
+        "Authors": [
+            {
+                "Name": "Connor Popp",
+                "Email": "cmpopp2@gmail.com"
+            }
+        ],
+        "Website": "https://github.com/p-connor/plasma-drawer"
+    },
+    "X-Plasma-API-Minimum-Version": "6.0",
+    "X-Plasma-Provides": [
+        "org.kde.plasma.launchermenu"
+    ]
+}

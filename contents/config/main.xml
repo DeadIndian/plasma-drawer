@@ -84,7 +84,7 @@
 
     <entry name="favoriteSystemActions" type="StringList">
       <label>List of system action favorites.</label>
-      <default>shutdown,reboot,logout</default>
+      <default>shutdown,reboot,logout,hibernate</default>
     </entry>
     <entry name="hiddenApplications" type="StringList">
       <label>List of menu id's (usually .desktop file names) of apps that should not be shown in the menu.</label>

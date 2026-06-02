@@ -26,13 +26,12 @@ import org.kde.ksvg as KSvg
 
 import org.kde.plasma.private.kicker as Kicker
 import org.kde.kitemmodels as KItemModels
+import org.kde.plasma.private.plasma_drawer 1.0 as PlasmaDrawer
 
 PlasmoidItem {
     id: kicker
 
-    // onActiveFocusItemChanged: {
-    //     console.log("activeFocusItem", activeFocusItem);
-    // }
+
 
     anchors.fill: parent
 
@@ -44,34 +43,13 @@ PlasmoidItem {
     fullRepresentation: compactRepresentation
 
     property Item dragSource: null
+    property var draggedAppData: null
+
+    property bool showAllApps: false
 
     property alias systemFavoritesModel: systemModel.favoritesModel
 
-    function logModelChildren(model, leadingSpace = 0) {
-        let spacing = Array(leadingSpace + 1).join(" ");
-        // console.log(model.description);
-        // console.log(model.data(model.index(0, 0), 0));
-        
-        var count = ("count" in model ? model.count : 1);
 
-        for (let i = 0; i < count; i++) {
-            let hasChildren = model.data(model.index(i, 0), 0x0107);
-            
-            console.log(spacing + `${model.data(model.index(i, 0), 0)} - `
-                            // + hasChildren ? `(${model.modelForRow(i).count}) - ` : ' - '
-                            + `${model.data(model.index(i, 0), 0x0101)}, `
-                            + `Deco: ${model.data(model.index(0, 0), 1)}, `
-                            + `IsParent: ${model.data(model.index(i, 0), 0x0106)}, `
-                            + `HasChildren: ${hasChildren}, `
-                            + `Group: ${model.data(model.index(i, 0), 0x0102)}`
-                        );
-            
-            if (hasChildren || count > 1) {
-                logModelChildren(model.modelForRow(i), leadingSpace + 2);
-                continue;
-            }
-        }
-    }
 
     Component {
         id: compactRepresentation
@@ -101,7 +79,9 @@ PlasmoidItem {
 
     readonly property DrawerTheme drawerTheme: DrawerTheme {}
 
-    readonly property Kicker.AppsModel appsModel: Kicker.AppsModel {
+    readonly property var appsModel: kicker.showAllApps ? allAppsModelRaw : kickerAppsModel
+
+    readonly property Kicker.AppsModel kickerAppsModel: Kicker.AppsModel {
         autoPopulate: true
 
         flat: false
@@ -114,8 +94,12 @@ PlasmoidItem {
         appNameFormat: plasmoid.configuration.appNameFormat
 
         Component.onCompleted: {
-            appsModel.refresh();
+            kickerAppsModel.refresh();
         }
+    }
+
+    PlasmaDrawer.AllAppsModel {
+        id: allAppsModelRaw
     }
 
     Kicker.SystemModel {
@@ -159,6 +143,10 @@ PlasmoidItem {
         }
     }
 
+    PlasmaDrawer.MenuEditorBackend {
+        id: menuEditorBackend
+    }
+
     Kicker.DragHelper {
         id: dragHelper
     }
@@ -185,7 +173,8 @@ PlasmoidItem {
     }
 
     function resetDragSource() {
-        dragSource = null;
+        if (dragSource !== null) dragSource = null;
+        if (draggedAppData !== null) draggedAppData = null;
     }
 
     Plasmoid.contextualActions: [

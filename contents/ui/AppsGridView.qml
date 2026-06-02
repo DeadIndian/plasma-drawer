@@ -14,8 +14,6 @@ FocusScope {
     signal keyNavDown
 
     property int iconSize: Kirigami.Units.iconSizes.huge
-    
-    // TODO - polish cell sizes for different resolutions
     readonly property int cellSizeWidth: (iconSize * 1.5) + Kirigami.Units.gridUnit
                                 + (2 * Kirigami.Units.smallSpacing)
                                 + (2 * Math.max(highlightItemSvg.margins.top + highlightItemSvg.margins.bottom,
@@ -45,8 +43,9 @@ FocusScope {
             if (item) {
                 origin = Qt.point(  (item.x + (cellSizeWidth / 2)) - (currentItemGrid.width / 2), 
                                     (item.y + (cellSizeHeight / 2)) - (currentItemGrid.height / 2) - currentItemGrid.contentY )
+
             }
-            stackView.push(directoryView, {model: dir, origin: origin});
+            stackView.push(directoryView, {model: dir, origin: origin, folderId: item ? (item.url.toString() || item.Accessible.name || "") : ""});
         }
     }
 
@@ -81,22 +80,16 @@ FocusScope {
         }
     }
 
-    // ActionMenu {
-    //     id: actionMenu
-    //     onActionClicked: visualParent.actionTriggered(actionId, actionArgument)
-    //     onClosed: {
-    //         currentItemGrid.currentIndex = -1;
-    //     }
-    // }
+
 
     // I believe StackView requires that the component be defined this way
     Component {
         id: directoryView
         ItemGridView {
             property var origin: Qt.point(0, 0)
+            property string folderId: ""
 
-            // width: appsGrid.numberColumns * cellSizeWidth
-            // height: appsGrid.numberRows * cellSizeHeight
+
             numberColumns: appsGrid.numberColumns
             maxVisibleRows: appsGrid.numberRows
 
@@ -106,7 +99,7 @@ FocusScope {
 
             model: appsGrid.model
             
-            dragEnabled: false
+            dragEnabled: true
             hoverEnabled: true
             layer.enabled: true
 
@@ -123,6 +116,41 @@ FocusScope {
                 keyNavLeft.connect(appsGrid.keyNavLeft);
                 keyNavRight.connect(appsGrid.keyNavRight);
             }
+        }
+    }
+
+    // Background drop area to exit the folder when dragging an app outside
+    DropArea {
+        anchors.fill: parent
+        onEntered: function(event) {
+            if (!appsGrid.isAtRoot) {
+                appsGrid.tryExitDirectory();
+            }
+        }
+
+        onPositionChanged: function(event) {
+            // Only accept if we are not at root (i.e. dragging outside the folder view)
+            // But actually ItemGridView handles its own background drops when at root.
+            // We just need to let this drop area catch things that ItemGridView ignores.
+            event.action = Qt.CopyAction;
+            event.accept(Qt.CopyAction);
+        }
+        
+        onDropped: function(event) {
+
+            if (typeof kicker !== "undefined" && kicker.draggedAppData && !kicker.draggedAppData.isDirectory) {
+
+                // Extracted from a folder to the root grid empty space
+                if (typeof menuEditorBackend !== "undefined") {
+                    menuEditorBackend.removeAppFromFolder(kicker.draggedAppData.url, kicker.draggedAppData.oldFolderId);
+                    event.accept();
+                } else {
+
+                }
+            } else {
+
+            }
+            kicker.resetDragSource();
         }
     }
 
@@ -225,4 +253,5 @@ FocusScope {
             PropertyAction { property: "scale"; value: 0 }
         }
     }
+
 }

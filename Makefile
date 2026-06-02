@@ -1,8 +1,8 @@
-# Prerequsites: Install kreadconfig5, kpackagetool6, zip, desktoptojson
+# Prerequsites: Install kreadconfig6, kpackagetool6, zip, desktoptojson
 # Example usages: 'make install', 'make VERSION=1.0 package'
 
 DIR = $(shell pwd)
-VERSION = $(shell kreadconfig5 --file="$(DIR)/metadata.desktop" --group="Desktop Entry" --key="X-KDE-PluginInfo-Version")
+VERSION = $(shell kreadconfig6 --file="$(DIR)/metadata.desktop" --group="Desktop Entry" --key="X-KDE-PluginInfo-Version")
 PACKAGE_NAME = plasma-drawer-$(VERSION).plasmoid
 
 $(PACKAGE_NAME): $(shell find contents -type f) metadata.json README.md
@@ -22,6 +22,17 @@ upgrade: $(PACKAGE_NAME)
 
 uninstall:
 	kpackagetool6 -t Plasma/Applet -r p-connor.plasma-drawer
+
+# New CMake targets for C++ backend compilation
+cmake-build:
+	cmake -B build -S . -DCMAKE_INSTALL_PREFIX=~/.local -DCMAKE_BUILD_TYPE=Release
+	cmake --build build -j$(shell nproc)
+
+cmake-install: cmake-build
+	cmake --install build
+
+cmake-clean:
+	rm -rf build
 
 test:
 	QT_LOGGING_RULES="qml.debug=true" plasmoidviewer -a ./

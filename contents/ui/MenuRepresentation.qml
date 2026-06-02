@@ -20,9 +20,11 @@
 
 import QtQuick
 import QtQuick.Controls
+import QtQuick.Layouts
 
 import org.kde.plasma.plasmoid
 import org.kde.plasma.extras as PlasmaExtras
+import org.kde.plasma.components 3.0 as PC3
 import org.kde.kirigami as Kirigami
 import org.kde.plasma.private.kicker as Kicker
 import QtQuick.Window
@@ -89,7 +91,11 @@ Kicker.DashboardWindow {
         if (actionList) {
             actionMenu.actionList = actionList;
         } else {
-            actionMenu.actionList = Tools.createMenuEditAction(i18n, processRunner);
+            var currentFolderId = "";
+            if (!searching && content.item && content.item.currentItemGrid) {
+                currentFolderId = content.item.currentItemGrid.folderId || "";
+            }
+            actionMenu.actionList = Tools.createMenuEditAction(i18n, processRunner, menuEditorBackend, currentFolderId);
         }
         actionMenu.open(x, y);
     }
@@ -143,6 +149,40 @@ Kicker.DashboardWindow {
             id: backgroundLoader
             anchors.fill: parent
             sourceComponent: plasmoid.configuration.backgroundType == 2 ? backgroundImageComponent : backgroundRectComponent
+        }
+
+        RowLayout {
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.margins: Kirigami.Units.largeSpacing
+            spacing: Kirigami.Units.smallSpacing
+            z: 999
+
+            PC3.ToolButton {
+                icon.name: "view-list-icons"
+                display: PC3.AbstractButton.IconOnly
+                PC3.ToolTip.text: i18n("Show all apps")
+                PC3.ToolTip.visible: hovered
+                onClicked: {
+                    kicker.showAllApps = !kicker.showAllApps;
+                    if (kicker.showAllApps && content.item && content.item.returnToRootDirectory) {
+                        content.item.returnToRootDirectory(false);
+                    }
+                }
+                visible: !searching
+            }
+            PC3.ToolButton {
+                icon.name: "edit-undo"
+                display: PC3.AbstractButton.IconOnly
+                PC3.ToolTip.text: i18n("Reset to default")
+                PC3.ToolTip.visible: hovered
+                onClicked: {
+                    if (typeof menuEditorBackend !== "undefined") {
+                        menuEditorBackend.resetToDefault();
+                    }
+                }
+                visible: !searching
+            }
         }
 
         PlasmaExtras.Heading {
@@ -402,6 +442,8 @@ Kicker.DashboardWindow {
                 searchField.text = searchField.text + event.text;
             }
         }
+        
+
     }
 
     Component.onCompleted: {
