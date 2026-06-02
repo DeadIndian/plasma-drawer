@@ -35,13 +35,22 @@ function createSystemActionActions(i18n, favoriteModel, favoriteId) {
                 text: i18n("Remove action"),
                 icon: "remove",
                 actionId: CUSTOM_ACTION_PREFIX + "_favorite_remove"
-            },
-            {
+            }
+        ];
+        
+        if (favoriteModel.count > 4) {
+            actions.push({
+                text: i18n("Show less"),
+                icon: "view-restore",
+                actionId: CUSTOM_ACTION_PREFIX + "_favorite_less"
+            });
+        } else {
+            actions.push({
                 text: i18n("Show all"),
                 icon: "view-visible",
                 actionId: CUSTOM_ACTION_PREFIX + "_favorite_reset"
-            }
-        ];
+            });
+        }
     } else if (favoriteModel.maxFavorites === -1 || favoriteModel.count < favoriteModel.maxFavorites) {
         actions = [
             {
@@ -58,8 +67,14 @@ function createSystemActionActions(i18n, favoriteModel, favoriteId) {
     return actions;
 }
 
-function createMenuEditAction(i18n, processRunner) {
+function createMenuEditAction(i18n, processRunner, menuEditorBackend, currentFolderId) {
     return [
+        {
+            text: i18n("Add new folder"),
+            icon: "folder-new",
+            actionId: CUSTOM_ACTION_PREFIX + "_create_folder",
+            actionArgument: { menuEditorBackend: menuEditorBackend, folderId: currentFolderId }
+        },
         {
             text: i18n("Edit Applications"),
             icon: "kmenuedit",
@@ -91,12 +106,42 @@ function triggerAction(plasmoid, model, index, actionId, actionArgument) {
 }
 
 function handleCustomAction(actionId, actionArgument) {
-    console.log(`Handling custom action ${actionId}`);
+
     
     if (actionId === CUSTOM_ACTION_PREFIX + "_menuedit") { 
-        console.log("running menu editor from processRunner");
+
         actionArgument.processRunner.runMenuEditor();
         return true;
+    }
+
+    if (actionId === CUSTOM_ACTION_PREFIX + "_create_folder") {
+        if (actionArgument.menuEditorBackend) {
+            actionArgument.menuEditorBackend.createFolder("New Folder", actionArgument.folderId || "");
+            return false;
+        }
+    }
+    
+    if (actionId === CUSTOM_ACTION_PREFIX + "_rename") {
+        if (actionArgument.menuEditorBackend) {
+            // Need a way to show renaming UI, we will trigger a signal or state change instead.
+            // Returning false to keep menu from closing immediately if we want inline edit, but wait:
+            // ActionMenu will close when clicked anyway. We need to set a state on the delegate to show TextField.
+            // Let's pass a callback or just do it in the delegate.
+        }
+    }
+    
+    if (actionId === CUSTOM_ACTION_PREFIX + "_duplicate_app") {
+        if (actionArgument.menuEditorBackend && actionArgument.url) {
+            actionArgument.menuEditorBackend.duplicateApp(actionArgument.url, actionArgument.folderId || "");
+            return false;
+        }
+    }
+    
+    if (actionId === CUSTOM_ACTION_PREFIX + "_delete_app") {
+        if (actionArgument.menuEditorBackend && actionArgument.url) {
+            actionArgument.menuEditorBackend.deleteApp(actionArgument.url, actionArgument.folderId || "");
+            return false;
+        }
     }
     
     if (actionArgument.favoriteId && actionArgument.favoriteModel) {
@@ -107,6 +152,11 @@ function handleCustomAction(actionId, actionArgument) {
             favoriteModel.removeFavorite(favoriteId);
         } else if (actionId === CUSTOM_ACTION_PREFIX + "_favorite_add") {
             favoriteModel.addFavorite(favoriteId);
+        } else if (actionId == CUSTOM_ACTION_PREFIX + "_favorite_less") {
+            favoriteModel.favorites = [ "shutdown", 
+                                        "reboot", 
+                                        "logout", 
+                                        "hibernate" ];
         } else if (actionId == CUSTOM_ACTION_PREFIX + "_favorite_reset") {
             favoriteModel.favorites = [ "shutdown", 
                                         "reboot", 

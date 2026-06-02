@@ -34,7 +34,9 @@ The applications in the grid will be arranged left to right, top to bottom.
 
 **To add an app to the "root" page, drag or copy it out of any folder in the "Edit Applications" menu.**
 
-#### Customizing Search Plugins
+#### Customizing Custom Folders
+
+Drag and drop an application onto a folder (or empty space to remove it from a folder) to manage its location! You can also delete and rename folders right from the interface.
 
 Right click the icon widget, then select "Configure Plasma Drawer." Then click the "Search Plugins" tab on the left. Enable and re-arrange the plugins according to personal preference. Matches for plugins higher in the list will be prioritized.
 

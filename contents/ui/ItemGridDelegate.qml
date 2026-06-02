@@ -30,43 +30,125 @@ import "../code/tools.js" as Tools
 Item {
     id: item
 
-    width: GridView.view.cellWidth
-    height: GridView.view.cellHeight
+    width: isDummyApp ? 0 : GridView.view.cellWidth
+    height: isDummyApp ? 0 : GridView.view.cellHeight
 
     property bool showLabel: true
     property var iconColorOverride: undefined
     property bool forceSymbolicIcons: false
 
-    readonly property bool isDirectory: model.hasChildren ?? false
+    readonly property bool isDummyApp: model.url ? (model.url.toString().indexOf("plasma-drawer-dummy.desktop") !== -1) : false
+    visible: !isDummyApp
+
+
+    readonly property bool isDirectory: model.hasChildren ? true : false
     readonly property var directoryModel: isDirectory ? GridView.view.model.modelForRow(itemIndex) : undefined
 
     // For this widget, the only favoritable actions should be system actions
     readonly property bool isSystemAction: (model.favoriteId 
                                             && GridView.view.model.favoritesModel 
-                                            && GridView.view.model.favoritesModel.enabled) ?? false
+                                            && GridView.view.model.favoritesModel.enabled) ? true : false
 
     readonly property int itemIndex: model.index
     readonly property url url: model.url != undefined ? model.url : ""
+    readonly property var icon: model.decoration
     property bool pressed: false
+    
+    readonly property bool isDragged: typeof kicker !== "undefined" && kicker.dragSource === item
+
+    property bool isDropTarget: false
+
+    scale: pressed || isDragged || isDropTarget ? 1.05 : 1.0
+    opacity: isDragged ? 0.6 : 1.0
+    Behavior on scale { NumberAnimation { duration: Kirigami.Units.shortDuration; easing.type: Easing.OutQuad } }
+    Behavior on opacity { NumberAnimation { duration: Kirigami.Units.shortDuration; easing.type: Easing.OutQuad } }
+
+    Rectangle {
+        anchors.fill: parent
+        anchors.margins: Kirigami.Units.smallSpacing
+        radius: Kirigami.Units.smallSpacing
+        color: Kirigami.Theme.highlightColor
+        opacity: isDropTarget ? 0.3 : 0.0
+        Behavior on opacity { NumberAnimation { duration: Kirigami.Units.shortDuration; easing.type: Easing.OutQuad } }
+        z: -1
+    }
 
     Accessible.role: Accessible.MenuItem
     Accessible.name: model.display
 
-    readonly property bool hasActionList: ((("hasActionList" in model) && (model.hasActionList == true))
-                                           || isSystemAction)
-    
-    function getActionList() {
-        return isSystemAction ? Tools.createSystemActionActions(i18n, GridView.view.model.favoritesModel, model.favoriteId) : model.actionList;
+    MouseArea {
+        id: itemMouseArea
+        anchors.fill: parent
+        hoverEnabled: isSystemAction
+        acceptedButtons: Qt.NoButton
     }
 
-    // Rectangle{
-    //     id: box
-    //     height: parent.height // - 10
-    //     width:  parent.width  // - 10
-    //     anchors.verticalCenter: parent.verticalCenter
-    //     anchors.horizontalCenter: parent.horizontalCenter
-    //     color: "transparent"
-    // }
+
+
+    readonly property bool hasActionList: ((("hasActionList" in model) && (model.hasActionList == true))
+                                           || isSystemAction || isDirectory)
+    
+    function getActionList() {
+        var actions = isSystemAction ? Tools.createSystemActionActions(i18n, GridView.view.model.favoritesModel, model.favoriteId) : model.actionList;
+        if (isDirectory && !isSystemAction) {
+            var newActions = [];
+            if (actions && actions.length > 0) {
+                for (var i = 0; i < actions.length; ++i) {
+                    newActions.push(actions[i]);
+                }
+                newActions.push({ type: "separator" });
+            }
+            newActions.push({
+                text: i18n("Rename Folder..."),
+                icon: "edit-rename",
+                actionId: "_plasmaDrawer_rename_folder",
+                actionArgument: model.url ? model.url.toString() : (model.favoriteId || model.name || model.display)
+            });
+            newActions.push({
+                text: i18n("Delete Folder"),
+                icon: "edit-delete",
+                actionId: "_plasmaDrawer_delete_folder",
+                actionArgument: model.url ? model.url.toString() : (model.favoriteId || model.name || model.display)
+            });
+
+            return newActions;
+        } else if (!isDirectory && !isSystemAction) {
+            var newAppActions = [];
+            if (actions && actions.length > 0) {
+                for (var j = 0; j < actions.length; ++j) {
+                    newAppActions.push(actions[j]);
+                }
+                newAppActions.push({ type: "separator" });
+            }
+            
+            var isOnlyApp = false;
+            if (typeof menuEditorBackend !== "undefined") {
+                isOnlyApp = !menuEditorBackend.hasMoreThanOneInstance(model.url ? model.url.toString() : model.favoriteId);
+            }
+            
+            newAppActions.push({
+                text: i18n("Duplicate"),
+                icon: "edit-copy",
+                actionId: "_plasmaDrawer_duplicate_app",
+                actionArgument: { url: model.url ? model.url.toString() : model.favoriteId, menuEditorBackend: typeof menuEditorBackend !== "undefined" ? menuEditorBackend : null, folderId: GridView.view.folderId || "" }
+            });
+            newAppActions.push({
+                text: i18n("Delete"),
+                icon: "edit-delete",
+                actionId: "_plasmaDrawer_delete_app",
+                actionArgument: { url: model.url ? model.url.toString() : model.favoriteId, menuEditorBackend: typeof menuEditorBackend !== "undefined" ? menuEditorBackend : null, folderId: GridView.view.folderId || "" },
+                enabled: !isOnlyApp
+            });
+            return newAppActions;
+        }
+        return actions;
+    }
+
+
+
+
+
+
 
     Component {
         id: iconComponent
@@ -107,15 +189,17 @@ Item {
                 cellWidth: (width / 2) * 0.9 > Kirigami.Units.iconSizes.small ? width / 2 : width
                 cellHeight: cellWidth
                 
-                // TODO - don't use clip here for performance reasons
-                clip: true
                 z: 1 // Make in front of background
                 interactive: false
+                clip: true
 
                 model: directoryModel
                 delegate: Item {
-                    width: directoryGridView.cellWidth
-                    height: directoryGridView.cellHeight
+                    readonly property bool isDummyApp: model.url ? (model.url.toString().indexOf("plasma-drawer-dummy.desktop") !== -1) : false
+                    visible: !isDummyApp
+
+                    width: isDummyApp ? 0 : directoryGridView.cellWidth
+                    height: isDummyApp ? 0 : directoryGridView.cellHeight
 
                     Kirigami.Icon {
                         id: directoryIconItem
@@ -150,16 +234,7 @@ Item {
         }        
     }
 
-    // Rectangle{
-    //     id: box
-    //     height: parent.height // - 10
-    //     width:  parent.width  // - 10
-    //     anchors.verticalCenter: box.verticalCenter
-    //     anchors.horizontalCenter: parent.horizontalCenter
-    //     color:"red"
-    //     opacity: 0.4
-    //     // color: "transparent"
-    // }
+
 
     PC3.Label {
         id: label
@@ -184,25 +259,4 @@ Item {
         color: drawerTheme.textColor
     }
 
-    // PC3.Label {
-    //     id: folderArrow
-
-    //     visible: isDirectory
-
-    //     anchors {
-    //         top: label.bottom
-    //         topMargin: Kirigami.Units.smallSpacing
-    //         left: parent.left
-    //         leftMargin: highlightItemSvg.margins.left
-    //         right: parent.right
-    //         rightMargin: highlightItemSvg.margins.right
-    //     }
-
-    //     horizontalAlignment: Text.AlignHCenter
-
-    //     elide: Text.ElideRight
-    //     wrapMode: Text.NoWrap
-
-    //     text: "^"
-    // }
 }

@@ -1,0 +1,104 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest   # best KDE6 tooling (kreadconfig6, desktoptojson)
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          pacman -Syu --noconfirm
+          pacman -S --noconfirm \
+            kconfig        `# kreadconfig6` \
+            kcoreaddons    `# desktoptojson` \
+            zip ruby rpm-tools
+
+          # fpm: single tool that emits .deb, .rpm, and more
+          gem install fpm --no-document
+
+      # ── Build the raw .plasmoid (zip) ─────────────────────────────────────
+
+      - name: Generate metadata.json
+        run: desktoptojson -i metadata.desktop -o metadata.json
+
+      - name: Read version
+        id: meta
+        run: |
+          V=$(kreadconfig6 \
+              --file="$(pwd)/metadata.desktop" \
+              --group="Desktop Entry" \
+              --key="X-KDE-PluginInfo-Version")
+          echo "version=$V" >> $GITHUB_OUTPUT
+
+      - name: Build .plasmoid archive
+        run: |
+          zip -r "plasma-drawer-${{ steps.meta.outputs.version }}.plasmoid" \
+            contents metadata.json README.md
+
+      # ── Stage the install tree once; reuse for deb + rpm ─────────────────
+      #
+      # Plasma discovers applets placed under:
+      #   /usr/share/plasma/plasmoids/<plugin-id>/
+      # The plugin ID comes from the X-KDE-PluginInfo-Name key in metadata.desktop.
+      # Adjust the path below if yours differs from p-connor.plasma-drawer.
+
+      - name: Stage install tree
+        run: |
+          DEST=staging/usr/share/plasma/plasmoids/p-connor.plasma-drawer
+          mkdir -p "$DEST"
+          cp -r contents metadata.json "$DEST/"
+
+      # ── .deb (Debian / Ubuntu / Kubuntu) ─────────────────────────────────
+
+      - name: Build .deb
+        run: |
+          fpm -s dir -t deb \
+            -C staging \
+            -n plasma-drawer \
+            -v "${{ steps.meta.outputs.version }}" \
+            --description "App drawer / launcher Plasma widget" \
+            --url "https://github.com/${{ github.repository }}" \
+            --license "GPL-3.0" \
+            --depends "plasma-workspace" \
+            --deb-no-default-config-files \
+            -p "plasma-drawer-${{ steps.meta.outputs.version }}.deb" \
+            .
+
+      # ── .rpm (Fedora / openSUSE / RHEL) ──────────────────────────────────
+
+      - name: Build .rpm
+        run: |
+          fpm -s dir -t rpm \
+            -C staging \
+            -n plasma-drawer \
+            -v "${{ steps.meta.outputs.version }}" \
+            --description "App drawer / launcher Plasma widget" \
+            --url "https://github.com/${{ github.repository }}" \
+            --license "GPL-3.0" \
+            --depends "plasma-workspace" \
+            -p "plasma-drawer-${{ steps.meta.outputs.version }}.rpm" \
+            .
+
+      # ── Publish everything to a GitHub Release ────────────────────────────
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "v${{ steps.meta.outputs.version }}"
+          generate_release_notes: true
+          files: |
+            plasma-drawer-${{ steps.meta.outputs.version }}.plasmoid
+            plasma-drawer-${{ steps.meta.outputs.version }}.deb
+            plasma-drawer-${{ steps.meta.outputs.version }}.rpm
