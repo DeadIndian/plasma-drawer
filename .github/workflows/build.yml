@@ -19,7 +19,7 @@ jobs:
           pacman -Syu --noconfirm
           pacman -S --noconfirm \
             jq             `# to parse metadata.json` \
-            zip ruby rpm-tools
+            zip ruby ruby-erb rpm-tools
 
           # fpm: single tool that emits .deb, .rpm, and more
           gem install fpm --no-document
