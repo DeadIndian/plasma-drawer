@@ -24,7 +24,6 @@ import org.kde.plasma.components 3.0 as PC3
 import org.kde.plasma.extras as PlasmaExtras
 import org.kde.kquickcontrolsaddons
 import org.kde.draganddrop
-import org.kde.kirigami as Kirigami
 
 import "../code/tools.js" as Tools
 
@@ -45,12 +44,21 @@ FocusScope {
 
     property int numberColumns: Math.floor(width / cellWidth)
     property int maxVisibleRows: -1
-    property string folderId: ""
     readonly property int numberRows: Math.ceil(count / numberColumns)
     property alias cellWidth: gridView.cellWidth
     property alias cellHeight: gridView.cellHeight
 
     property alias model: gridView.model
+
+    // Id of the folder this grid shows ("" at root). Read from the model, which
+    // carries it (see DrawerModel); kicker models don't have it, hence the guard.
+    readonly property string folderId: {
+        try {
+            return gridView.model.folderId || "";
+        } catch (e) {
+            return "";
+        }
+    }
 
     property alias currentIndex: gridView.currentIndex
     property alias currentItem: gridView.currentItem
@@ -59,12 +67,6 @@ FocusScope {
     property alias count: gridView.count
     property alias flow: gridView.flow
     property alias snapMode: gridView.snapMode
-
-    Timer {
-        id: resetDragTimer
-        interval: 1000
-        onTriggered: kicker.resetDragSource()
-    }
 
     property alias hoverEnabled: mouseArea.hoverEnabled
 
@@ -137,12 +139,11 @@ FocusScope {
         visualParent: gridView
         
         onActionClicked: function (actionId, actionArgument) {
-            if (actionId === "_plasmaDrawer_rename_folder") {
-                renameDialog.folderId = actionArgument;
-                renameDialog.open();
-                return;
-            } else if (actionId === "_plasmaDrawer_delete_folder") {
-                menuEditorBackend.deleteFolder(actionArgument);
+            if (actionId === "_plasmaDrawer_rename") {
+                var delegate = gridView.itemAtIndex(targetIndex);
+                if (delegate && delegate.startRename) {
+                    delegate.startRename();
+                }
                 return;
             }
 
@@ -156,35 +157,6 @@ FocusScope {
             currentIndex = -1;
         }
     }
-
-    Kirigami.PromptDialog {
-        id: renameDialog
-        title: i18n("Rename Folder")
-        property string folderId: ""
-        
-        standardButtons: Kirigami.Dialog.Ok | Kirigami.Dialog.Cancel
-        
-        onAccepted: {
-            if (folderId !== "" && nameField.text.trim() !== "") {
-                menuEditorBackend.renameFolder(folderId, nameField.text.trim());
-            }
-            nameField.text = "";
-        }
-        
-        onOpened: {
-            nameField.forceActiveFocus();
-        }
-
-        PC3.TextField {
-            id: nameField
-            placeholderText: i18n("New folder name...")
-            onAccepted: {
-                renameDialog.accept();
-            }
-        }
-    }
-
-
 
     function openActionMenu(x, y, actionList) {
         if (actionList && "length" in actionList && actionList.length > 0) {
@@ -203,8 +175,14 @@ FocusScope {
 
         property var currentDropTarget: null
 
-        onDragEnter: function(event) {
+        function clearDropTarget() {
+            if (currentDropTarget) {
+                currentDropTarget.isDropTarget = false;
+                currentDropTarget = null;
+            }
+        }
 
+        onDragEnter: function(event) {
             event.action = Qt.CopyAction;
             event.accept(Qt.CopyAction);
         }
@@ -214,11 +192,11 @@ FocusScope {
             var item = gridView.itemAt(cPos.x, cPos.y);
 
             if (dropArea.currentDropTarget && dropArea.currentDropTarget !== item) {
-                dropArea.currentDropTarget.isDropTarget = false;
-                dropArea.currentDropTarget = null;
+                dropArea.clearDropTarget();
             }
 
             if (item && item.isDirectory && kicker.draggedAppData && !kicker.draggedAppData.isDirectory) {
+                // Hovering an app over a folder: mark it as the drop target.
                 event.action = Qt.CopyAction;
                 event.accept(Qt.CopyAction);
                 if (!dropArea.currentDropTarget) {
@@ -226,12 +204,15 @@ FocusScope {
                     item.isDropTarget = true;
                 }
             } else if (!item && kicker.draggedAppData && !kicker.draggedAppData.isDirectory && appsGrid.isAtRoot) {
+                // Empty root space: dropping here pulls the app out of its folder.
                 event.action = Qt.CopyAction;
                 event.accept(Qt.CopyAction);
-            } else if (item && item != kicker.dragSource && kicker.dragSource && kicker.dragSource.parent == gridView.contentItem && "moveRow" in item.GridView.view.model) {
-                try {
-                    item.GridView.view.model.moveRow(kicker.dragSource.itemIndex, item.itemIndex);
-                } catch(e) { }
+            } else if (item && item != kicker.dragSource && kicker.dragSource
+                       && kicker.dragSource.parent == gridView.contentItem
+                       && "moveRow" in gridView.model) {
+                // Dragging within a single grid: live-reorder. The model's
+                // moveRow moves the row and persists the new order.
+                gridView.model.moveRow(kicker.dragSource.itemIndex, item.itemIndex);
                 event.action = Qt.MoveAction;
                 event.accept(Qt.MoveAction);
             } else {
@@ -239,32 +220,27 @@ FocusScope {
             }
         }
 
-        onDrop: function(event) {
+        onDragLeave: function(event) {
+            dropArea.clearDropTarget();
+        }
 
-            if (dropArea.currentDropTarget) {
-                dropArea.currentDropTarget.isDropTarget = false;
-                dropArea.currentDropTarget = null;
-            }
+        onDrop: function(event) {
+            dropArea.clearDropTarget();
 
             var cPos = mapToItem(gridView.contentItem, event.x, event.y);
             var item = gridView.itemAt(cPos.x, cPos.y);
-            
-
 
             if (item && item.isDirectory && kicker.draggedAppData && !kicker.draggedAppData.isDirectory) {
-                var targetFolderId = item.url.toString() || item.Accessible.name || "";
-
-                // Drop an app onto a directory
-                menuEditorBackend.moveAppToFolder(kicker.draggedAppData.url, targetFolderId, kicker.draggedAppData.oldFolderId || "");
+                // Drop an app onto a folder.
+                drawerModel.moveAppToFolder(kicker.draggedAppData.storageId, item.folderId);
                 event.accept(Qt.CopyAction);
             } else if (!item && kicker.draggedAppData && !kicker.draggedAppData.isDirectory && appsGrid.isAtRoot) {
-
-                // Drop an app outside a directory onto the root grid empty space
-                menuEditorBackend.removeAppFromFolder(kicker.draggedAppData.url, kicker.draggedAppData.oldFolderId || "");
+                // Drop an app onto empty root space: pull it out of its folder.
+                drawerModel.removeAppFromFolder(kicker.draggedAppData.storageId);
                 event.accept(Qt.CopyAction);
-            } else {
-
             }
+            // Same-grid reorders already happened live during onDragMove.
+
             kicker.resetDragSource();
         }
 
@@ -282,15 +258,15 @@ FocusScope {
 
             GridView {
                 id: gridView
-                property string folderId: itemGrid.folderId
                 width: numberColumns * cellWidth
                 height: parent.height
-
+                // anchors.left: parent.left
+                // anchors.verticalCenter: parent.verticalCenter
 
                 focus: true
                 visible: model ? model.count > 0 : false
                 currentIndex: -1
-
+                // clip: true
 
                 keyNavigationWraps: false
                 boundsBehavior: Flickable.StopAtBounds
@@ -465,9 +441,10 @@ FocusScope {
 
                     onReleased: function (mouse) {
                         mouse.accepted = true;
-                        if (gridView.currentItem && mouse.button == Qt.LeftButton) {
+                        if (gridView.currentItem) {
                             itemGrid.trigger(gridView.currentIndex);
                         } else if (!dragHelper.dragging) {
+                            // TODO - pass mouse events down to root instead
                             if (mouse.button == Qt.RightButton) {
                                 var cpos = mapToItem(root.mainItem, mouse.x, mouse.y);
                                 root.openActionMenu(cpos.x, cpos.y);
@@ -480,8 +457,6 @@ FocusScope {
                             gridView.currentItem.pressed = false;
                         }
 
-                        // Defer reset so DropArea can read dragSource
-                        resetDragTimer.start();
                         pressX = -1;
                         pressY = -1;
                     }
@@ -501,15 +476,15 @@ FocusScope {
                         }
 
                         if (!dragHelper.isDrag(pressX, pressY, mouse.x, mouse.y)) {
-
                             kicker.dragSource = item;
                             kicker.draggedAppData = {
+                                storageId: item.favoriteId,
                                 url: item.url.toString(),
                                 isDirectory: item.isDirectory,
                                 itemIndex: item.itemIndex,
-                                oldFolderId: folderId
+                                oldFolderId: itemGrid.folderId
                             };
-                            
+
                             if (item.m && "pluginName" in item.m) {
                                 dragHelper.startDrag(kicker, item.url, item.icon,
                                 "text/x-plasmoidservicename", item.m.pluginName);
@@ -527,13 +502,13 @@ FocusScope {
 
                         if (gridView.currentIndex != -1 && currentItem && currentItem.m != null) {
                             if (dragEnabled && !dragHelper.dragging && dragHelper.isDrag(pressX, pressY, mouse.x, mouse.y)) {
-
                                 kicker.dragSource = currentItem;
                                 kicker.draggedAppData = {
+                                    storageId: currentItem.favoriteId,
                                     url: currentItem.url.toString(),
                                     isDirectory: currentItem.isDirectory,
                                     itemIndex: currentItem.itemIndex,
-                                    oldFolderId: folderId
+                                    oldFolderId: itemGrid.folderId
                                 };
                                 if (currentItem.m && "pluginName" in currentItem.m) {
                                     dragHelper.startDrag(kicker, currentItem.url, currentItem.icon,

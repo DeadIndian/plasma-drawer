@@ -95,7 +95,7 @@ Kicker.DashboardWindow {
             if (!searching && content.item && content.item.currentItemGrid) {
                 currentFolderId = content.item.currentItemGrid.folderId || "";
             }
-            actionMenu.actionList = Tools.createMenuEditAction(i18n, processRunner, menuEditorBackend, currentFolderId);
+            actionMenu.actionList = Tools.createMenuEditAction(i18n, processRunner, drawerModel, currentFolderId);
         }
         actionMenu.open(x, y);
     }
@@ -177,8 +177,8 @@ Kicker.DashboardWindow {
                 PC3.ToolTip.text: i18n("Reset to default")
                 PC3.ToolTip.visible: hovered
                 onClicked: {
-                    if (typeof menuEditorBackend !== "undefined") {
-                        menuEditorBackend.resetToDefault();
+                    if (typeof drawerModel !== "undefined") {
+                        drawerModel.resetToDefault();
                     }
                 }
                 visible: !searching

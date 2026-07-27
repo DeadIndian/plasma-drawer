@@ -121,5 +121,10 @@
       <label>Whether the favorites are ported to use KActivitiesStats to allow per-activity favorites</label>
       <default>false</default>
     </entry>
+
+    <entry name="drawerLayout" type="String">
+      <label>JSON document holding the user's custom drawer organization: folders, root ordering, hidden apps, and display-name overrides. Empty object means "use the flat system app list".</label>
+      <default>{}</default>
+    </entry>
   </group>
 </kcfg>

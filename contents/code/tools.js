@@ -67,13 +67,13 @@ function createSystemActionActions(i18n, favoriteModel, favoriteId) {
     return actions;
 }
 
-function createMenuEditAction(i18n, processRunner, menuEditorBackend, currentFolderId) {
+function createMenuEditAction(i18n, processRunner, drawerModel, currentFolderId) {
     return [
         {
             text: i18n("Add new folder"),
             icon: "folder-new",
             actionId: CUSTOM_ACTION_PREFIX + "_create_folder",
-            actionArgument: { menuEditorBackend: menuEditorBackend, folderId: currentFolderId }
+            actionArgument: { drawerModel: drawerModel, folderId: currentFolderId }
         },
         {
             text: i18n("Edit Applications"),
@@ -115,35 +115,21 @@ function handleCustomAction(actionId, actionArgument) {
     }
 
     if (actionId === CUSTOM_ACTION_PREFIX + "_create_folder") {
-        if (actionArgument.menuEditorBackend) {
-            actionArgument.menuEditorBackend.createFolder("New Folder", actionArgument.folderId || "");
+        if (actionArgument.drawerModel) {
+            actionArgument.drawerModel.createFolder("New Folder", actionArgument.folderId || "");
             return false;
         }
     }
-    
-    if (actionId === CUSTOM_ACTION_PREFIX + "_rename") {
-        if (actionArgument.menuEditorBackend) {
-            // Need a way to show renaming UI, we will trigger a signal or state change instead.
-            // Returning false to keep menu from closing immediately if we want inline edit, but wait:
-            // ActionMenu will close when clicked anyway. We need to set a state on the delegate to show TextField.
-            // Let's pass a callback or just do it in the delegate.
-        }
-    }
-    
-    if (actionId === CUSTOM_ACTION_PREFIX + "_duplicate_app") {
-        if (actionArgument.menuEditorBackend && actionArgument.url) {
-            actionArgument.menuEditorBackend.duplicateApp(actionArgument.url, actionArgument.folderId || "");
-            return false;
-        }
-    }
-    
+
+    // App rename is handled inline by the delegate (opens a dialog); nothing to do here.
+
     if (actionId === CUSTOM_ACTION_PREFIX + "_delete_app") {
-        if (actionArgument.menuEditorBackend && actionArgument.url) {
-            actionArgument.menuEditorBackend.deleteApp(actionArgument.url, actionArgument.folderId || "");
+        if (actionArgument.drawerModel && actionArgument.storageId) {
+            actionArgument.drawerModel.deleteApp(actionArgument.storageId);
             return false;
         }
     }
-    
+
     if (actionArgument.favoriteId && actionArgument.favoriteModel) {
         var favoriteId = actionArgument.favoriteId;
         var favoriteModel = actionArgument.favoriteModel;

@@ -30,6 +30,9 @@ import org.kde.kcmutils as KCM
 import org.kde.ksvg as KSvg
 import org.kde.kquickcontrols as KQuickControls
 import org.kde.draganddrop as DragDrop
+import org.kde.plasma.plasma5support as Plasma5Support
+
+import "../code/layout.js" as LayoutEngine
 
 KCM.SimpleKCM {
     id: configGeneral
@@ -59,7 +62,94 @@ KCM.SimpleKCM {
 
     property alias cfg_disableAnimations:               disableAnimations.checked
     property alias cfg_animationSpeedMultiplier:        animationSpeedMultiplier.value
-    
+
+    // --- Folder structure import/export -------------------------------------
+
+    // Drives the one-shot status label under the Folder Structure section.
+    property bool layoutStatusIsError: false
+
+    function setLayoutStatus(message, isError) {
+        layoutStatusIsError = isError;
+        layoutTransferStatus.text = message;
+    }
+
+    // QML cannot write files, so the export goes through Plasma's executable
+    // data engine. The payload is single-quote shell-escaped, so any folder
+    // name (quotes, newlines, unicode) survives the round trip intact.
+    function shellQuote(text) {
+        return "'" + text.replace(/'/g, "'\\''") + "'";
+    }
+
+    function exportLayoutToFile(path) {
+        var doc = LayoutEngine.parse(plasmoid.configuration.drawerLayout);
+        var payload = LayoutEngine.serializeForExport(doc);
+        var cmd = "printf '%s' " + shellQuote(payload) + " > " + shellQuote(path);
+        exportWriter.pendingCommand = cmd;
+        exportWriter.pendingPath = path;
+        exportWriter.connectSource(cmd);
+    }
+
+    function importLayoutFromUrl(url) {
+        url = (url || "").trim();
+        if (!/^https?:\/\//i.test(url)) {
+            setLayoutStatus(i18n("Please enter an http(s) URL."), true);
+            return;
+        }
+        setLayoutStatus(i18n("Downloading %1…", url), false);
+        var xhr = new XMLHttpRequest();
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState !== XMLHttpRequest.DONE) return;
+            if (xhr.status >= 200 && xhr.status < 300) {
+                var result = LayoutEngine.validateImport(xhr.responseText);
+                if (result.ok) {
+                    plasmoid.configuration.drawerLayout = LayoutEngine.serialize(result.doc);
+                    setLayoutStatus(i18np("Folder structure imported (%1 folder).",
+                                          "Folder structure imported (%1 folders).",
+                                          result.doc.folders.length), false);
+                } else {
+                    setLayoutStatus(i18n("Import failed: %1", result.error), true);
+                }
+            } else {
+                setLayoutStatus(i18n("Download failed (HTTP status %1).", xhr.status), true);
+            }
+        };
+        xhr.open("GET", url);
+        xhr.send();
+    }
+
+    Plasma5Support.DataSource {
+        id: exportWriter
+        engine: "executable"
+        connectedSources: []
+
+        property string pendingCommand: ""
+        property string pendingPath: ""
+
+        onNewData: function(sourceName, data) {
+            disconnectSource(sourceName);
+            if (sourceName !== pendingCommand) return;
+            pendingCommand = "";
+            if (data["exit code"] === 0) {
+                setLayoutStatus(i18n("Folder structure exported to %1", pendingPath), false);
+            } else {
+                setLayoutStatus(i18n("Export failed: %1", data.stderr || i18n("could not write the file")), true);
+            }
+        }
+    }
+
+    FileDialog {
+        id: layoutExportDialog
+        title: i18n("Export Folder Structure")
+        fileMode: FileDialog.SaveFile
+        currentFolder: StandardPaths.standardLocations(StandardPaths.DocumentsLocation)[0]
+        nameFilters: [ i18n("JSON files") + " (*.json)", i18n("All files") + " (*)" ]
+        onAccepted: {
+            var path = decodeURIComponent(String(selectedFile).replace("file://", ""));
+            if (path.slice(-5) !== ".json") path += ".json";
+            exportLayoutToFile(path);
+        }
+    }
+
     Kirigami.FormLayout {
         // ----------------- Icon -----------------
         Button {
@@ -284,9 +374,55 @@ KCM.SimpleKCM {
             }
         }
 
-        CheckBox {        
+        CheckBox {
             id: useDirectoryIcons
             text:  i18n("Use directory icons")
+        }
+
+        // ----------------- Folder Structure -----------------
+        Item {
+            Kirigami.FormData.isSection: true
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+            Kirigami.FormData.label: i18n("Folder structure:")
+
+            Button {
+                text: i18n("Export as JSON…")
+                icon.name: "document-save-as"
+                onClicked: layoutExportDialog.open()
+            }
+        }
+
+        RowLayout {
+            Layout.fillWidth: true
+
+            Label {
+                text: i18n("Import from URL:")
+            }
+            TextField {
+                id: layoutUrlField
+                Layout.fillWidth: true
+                placeholderText: "https://example.com/plasma-drawer-layout.json"
+                inputMethodHints: Qt.ImhUrlCharactersOnly
+                onAccepted: layoutImportButton.clicked()
+            }
+            Button {
+                id: layoutImportButton
+                text: i18n("Import")
+                icon.name: "document-import"
+                enabled: layoutUrlField.text.trim().length > 0
+                onClicked: importLayoutFromUrl(layoutUrlField.text)
+            }
+        }
+
+        Label {
+            id: layoutTransferStatus
+            Layout.fillWidth: true
+            wrapMode: Text.WordWrap
+            visible: text.length > 0
+            color: layoutStatusIsError ? Kirigami.Theme.negativeTextColor : Kirigami.Theme.textColor
         }
 
         // ----------------- Search -----------------

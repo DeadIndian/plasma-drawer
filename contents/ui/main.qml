@@ -26,7 +26,6 @@ import org.kde.ksvg as KSvg
 
 import org.kde.plasma.private.kicker as Kicker
 import org.kde.kitemmodels as KItemModels
-import org.kde.plasma.private.plasma_drawer 1.0 as PlasmaDrawer
 
 PlasmoidItem {
     id: kicker
@@ -79,27 +78,24 @@ PlasmoidItem {
 
     readonly property DrawerTheme drawerTheme: DrawerTheme {}
 
-    readonly property var appsModel: kicker.showAllApps ? allAppsModelRaw : kickerAppsModel
+    // Single source: the JSON+QML drawer model. Replaces the old kicker AppsModel
+    // (category tree) + C++ AllAppsModel + MenuEditorBackend. `showAllApps` toggles
+    // between the organized layout and the raw flat system list.
+    readonly property var appsModel: drawerModel.rootModel
 
-    readonly property Kicker.AppsModel kickerAppsModel: Kicker.AppsModel {
-        autoPopulate: true
-
-        flat: false
-        showTopLevelItems: true
-        sorted: false
-        showSeparators: false
-        paginate: false
-
+    DrawerModel {
+        id: drawerModel
         appletInterface: kicker
         appNameFormat: plasmoid.configuration.appNameFormat
+        flatMode: kicker.showAllApps
+        layoutJson: plasmoid.configuration.drawerLayout
 
-        Component.onCompleted: {
-            kickerAppsModel.refresh();
+        // Persist layout edits back to config (KConfig flushes on plasmashell exit).
+        onLayoutJsonChanged: {
+            if (plasmoid.configuration.drawerLayout !== layoutJson) {
+                plasmoid.configuration.drawerLayout = layoutJson;
+            }
         }
-    }
-
-    PlasmaDrawer.AllAppsModel {
-        id: allAppsModelRaw
     }
 
     Kicker.SystemModel {
@@ -141,10 +137,6 @@ PlasmoidItem {
             let sourceRow = runnerModel.mapToSource(runnerModel.index(proxyRow, 0)).row;
             return sourceModel.modelForRow(sourceRow);
         }
-    }
-
-    PlasmaDrawer.MenuEditorBackend {
-        id: menuEditorBackend
     }
 
     Kicker.DragHelper {

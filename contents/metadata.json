@@ -1,4 +1,5 @@
 {
+    "KPackageStructure": "Plasma/Applet",
     "KPlugin": {
         "Id": "p-connor.plasma-drawer",
         "Name": "Plasma Drawer",

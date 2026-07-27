@@ -23,16 +23,8 @@ upgrade: $(PACKAGE_NAME)
 uninstall:
 	kpackagetool6 -t Plasma/Applet -r p-connor.plasma-drawer
 
-# New CMake targets for C++ backend compilation
-cmake-build:
-	cmake -B build -S . -DCMAKE_INSTALL_PREFIX=~/.local -DCMAKE_BUILD_TYPE=Release
-	cmake --build build -j$(shell nproc)
-
-cmake-install: cmake-build
-	cmake --install build
-
-cmake-clean:
-	rm -rf build
+# No C++ to compile: this is a pure QML/JS plasmoid. Install straight from the
+# KDE Store ("Get New Widgets") or with `make install` / `make upgrade`.
 
 test:
 	QT_LOGGING_RULES="qml.debug=true" plasmoidviewer -a ./

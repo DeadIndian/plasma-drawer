@@ -163,6 +163,18 @@ FocusScope {
                 }
             }
 
+            add: Transition {
+                NumberAnimation { property: "opacity"; from: 0; to: 1.0; duration: Kirigami.Units.shortDuration }
+                NumberAnimation { property: "scale"; from: 0.8; to: 1.0; duration: Kirigami.Units.shortDuration; easing.type: Easing.OutBack }
+            }
+            remove: Transition {
+                NumberAnimation { property: "opacity"; from: 1.0; to: 0; duration: Kirigami.Units.shortDuration }
+                NumberAnimation { property: "scale"; from: 1.0; to: 0.8; duration: Kirigami.Units.shortDuration; easing.type: Easing.InBack }
+            }
+            displaced: Transition {
+                NumberAnimation { properties: "x,y"; duration: Kirigami.Units.shortDuration; easing.type: Easing.OutQuad }
+            }
+
             delegate: ItemListDelegate {
                 width: rowWidth
                 height: rowHeight
