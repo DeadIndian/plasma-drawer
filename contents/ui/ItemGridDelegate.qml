@@ -92,24 +92,24 @@ Item {
         if (isSystemAction) {
             return Tools.createSystemActionActions(i18n, GridView.view.model.favoritesModel, model.favoriteId);
         }
-
+        
         var actions = model.actionList || [];
         var newActions = [];
         for (var i = 0; i < actions.length; i++) {
             newActions.push(actions[i]);
         }
-
+        
         newActions.push({
             type: "separator"
         });
-
+        
         newActions.push({
             text: isDirectory ? i18n("Rename Folder") : i18n("Rename App"),
             icon: "edit-rename",
             actionId: "_plasmaDrawer_rename",
             actionArgument: { url: model.url.toString(), isDirectory: isDirectory }
         });
-
+        
         return newActions;
     }
 
@@ -251,7 +251,7 @@ Item {
     PC3.TextField {
         id: renameField
         visible: isRenaming
-
+        
         anchors {
             top: displayBox.bottom
             topMargin: Kirigami.Units.largeSpacing * 1.5
@@ -260,7 +260,7 @@ Item {
             right: parent.right
             rightMargin: highlightItemSvg.margins.right
         }
-
+        
         horizontalAlignment: TextInput.AlignHCenter
         color: drawerTheme.textColor
         background: Rectangle {
@@ -268,7 +268,7 @@ Item {
             radius: Kirigami.Units.smallSpacing
             border.color: drawerTheme.iconColor
         }
-
+        
         onEditingFinished: {
             if (isRenaming) {
                 isRenaming = false;
@@ -281,7 +281,7 @@ Item {
                 }
             }
         }
-
+        
         Keys.onEscapePressed: {
             isRenaming = false;
         }

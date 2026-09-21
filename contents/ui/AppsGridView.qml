@@ -14,7 +14,7 @@ FocusScope {
     signal keyNavDown
 
     property int iconSize: Kirigami.Units.iconSizes.huge
-
+    
     // TODO - polish cell sizes for different resolutions
     readonly property int cellSizeWidth: (iconSize * 1.5) + Kirigami.Units.gridUnit
                                 + (2 * Kirigami.Units.smallSpacing)

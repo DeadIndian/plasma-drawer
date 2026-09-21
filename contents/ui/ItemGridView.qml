@@ -146,7 +146,7 @@ FocusScope {
                 }
                 return;
             }
-
+            
             var closeRequested = Tools.triggerAction(plasmoid, model, targetIndex, actionId, actionArgument);
             if (closeRequested) {
                 root.toggle();
