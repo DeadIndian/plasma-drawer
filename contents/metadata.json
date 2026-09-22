@@ -1,18 +1,25 @@
 {
     "KPackageStructure": "Plasma/Applet",
     "KPlugin": {
-        "Id": "p-connor.plasma-drawer",
+        "Id": "io.github.deadindian.plasma-drawer",
         "Name": "Plasma Drawer",
         "Description": "A fullscreen customizable launcher with application directories and krunner-like search",
         "Version": "2.0.2",
+        "License": "GPL-3.0-or-later",
+        "Icon": "start-here-kde",
         "Category": "Application Launchers",
         "Authors": [
+            {
+                "Name": "DeadIndian",
+                "Email": "gollabharath2007@gmail.com"
+            },
             {
                 "Name": "Connor Popp",
                 "Email": "cmpopp2@gmail.com"
             }
         ],
-        "Website": "https://github.com/p-connor/plasma-drawer"
+        "Website": "https://github.com/DeadIndian/plasma-drawer",
+        "BugReportUrl": "https://github.com/DeadIndian/plasma-drawer/issues"
     },
     "X-Plasma-API-Minimum-Version": "6.0",
     "X-Plasma-Provides": [
