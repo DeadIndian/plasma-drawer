@@ -43,11 +43,11 @@ jobs:
       # Plasma discovers applets placed under:
       #   /usr/share/plasma/plasmoids/<plugin-id>/
       # The plugin ID comes from the X-KDE-PluginInfo-Name key in metadata.desktop.
-      # Adjust the path below if yours differs from p-connor.plasma-drawer.
+      # Adjust the path below if yours differs from deadindian.plasma-drawer.
 
       - name: Stage install tree
         run: |
-          DEST=staging/usr/share/plasma/plasmoids/p-connor.plasma-drawer
+          DEST=staging/usr/share/plasma/plasmoids/deadindian.plasma-drawer
           mkdir -p "$DEST"
           cp -r contents metadata.json "$DEST/"
 

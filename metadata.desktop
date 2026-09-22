@@ -8,12 +8,13 @@ Icon=start-here-kde
 X-Plasma-API-Minimum-Version=6.0
 X-Plasma-Provides=org.kde.plasma.launchermenu
 
-X-KDE-PluginInfo-Author=Connor Popp
-X-KDE-PluginInfo-Email=cmpopp2@gmail.com
-X-KDE-PluginInfo-Name=p-connor.plasma-drawer
+X-KDE-PluginInfo-Author=DeadIndian
+X-KDE-PluginInfo-Email=gollabharath2007@gmail.com
+X-KDE-PluginInfo-Name=io.github.deadindian.plasma-drawer
 X-KDE-PluginInfo-Version=2.0.2
-X-KDE-PluginInfo-Website=https://github.com/p-connor/plasma-drawer
+X-KDE-PluginInfo-Website=https://github.com/DeadIndian/plasma-drawer
 X-KDE-PluginInfo-Category=Application Launchers
+X-KDE-PluginInfo-License=GPL-3.0-or-later
 
 KPackageStructure=Plasma/Applet
 

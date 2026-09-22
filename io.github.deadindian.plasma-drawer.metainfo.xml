@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- AppStream metadata for a Plasma add-on. An add-on is not an application: it
+     declares what it plugs into with <extends>, and it has no <launchable>.
+     Install to /usr/share/metainfo/io.github.deadindian.plasma-drawer.metainfo.xml (packaged builds only).
+     Validate with: appstreamcli validate io.github.deadindian.plasma-drawer.metainfo.xml -->
+<component type="addon">
+  <id>io.github.deadindian.plasma-drawer</id>
+  <extends>org.kde.plasmashell</extends>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>GPL-3.0-or-later</project_license>
+
+  <name>Plasma Drawer</name>
+  <summary>A fullscreen customizable launcher with application directories and krunner-like search</summary>
+
+  <description>
+    <p>
+      Plasma Drawer is a fullscreen application launcher for KDE Plasma 6. It
+      organizes apps into customizable folders, supports drag-and-drop
+      arrangement, and includes a KRunner-like search for apps, files, and
+      system actions.
+    </p>
+  </description>
+
+  <url type="homepage">https://github.com/DeadIndian/plasma-drawer</url>
+  <url type="bugtracker">https://github.com/DeadIndian/plasma-drawer/issues</url>
+
+  <developer id="io.github.deadindian">
+    <name>DeadIndian</name>
+  </developer>
+
+  <screenshots>
+    <screenshot type="default">
+      <image>https://github.com/DeadIndian/plasma-drawer/blob/main/screenshots/custom.png?raw=true</image>
+      <caption>Custom folder layout</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://github.com/DeadIndian/plasma-drawer/blob/main/screenshots/manjaro-search.png?raw=true</image>
+      <caption>KRunner-like search</caption>
+    </screenshot>
+  </screenshots>
+
+  <content_rating type="oars-1.1"/>
+
+  <releases>
+    <release version="2.0.2" date="2026-09-22">
+      <description>
+        <p>Arbitrary-depth folder nesting, folder delete action, and drag-out-of-folder gesture.</p>
+      </description>
+    </release>
+  </releases>
+</component>

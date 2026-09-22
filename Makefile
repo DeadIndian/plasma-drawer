@@ -21,7 +21,7 @@ upgrade: $(PACKAGE_NAME)
 	kpackagetool6 -t Plasma/Applet -u $(PACKAGE_NAME)
 
 uninstall:
-	kpackagetool6 -t Plasma/Applet -r p-connor.plasma-drawer
+	kpackagetool6 -t Plasma/Applet -r io.github.deadindian.plasma-drawer
 
 # No C++ to compile: this is a pure QML/JS plasmoid. Install straight from the
 # KDE Store ("Get New Widgets") or with `make install` / `make upgrade`.
