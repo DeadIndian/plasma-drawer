@@ -22,6 +22,7 @@ import QtQuick.Controls
 
 import org.kde.plasma.components 3.0 as PC3
 import org.kde.plasma.extras as PlasmaExtras
+import org.kde.kirigami as Kirigami
 import org.kde.kquickcontrolsaddons
 import org.kde.draganddrop
 
@@ -35,6 +36,7 @@ FocusScope {
     signal keyNavUp
     signal keyNavDown
 
+    property bool isInFolder: false
     property bool dragEnabled: true
     property bool showLabels: true
     property bool setIconColorBasedOnTheme: false
@@ -146,7 +148,19 @@ FocusScope {
                 }
                 return;
             }
-            
+
+            if (actionId === "_plasmaDrawer_deleteFolder") {
+                if (actionArgument && actionArgument.folderId) {
+                    // If we're currently inside the folder being deleted, step out
+                    // first so the StackView isn't left showing a dead model.
+                    if (itemGrid.folderId === actionArgument.folderId) {
+                        appsGrid.tryExitDirectory();
+                    }
+                    drawerModel.deleteFolder(actionArgument.folderId);
+                }
+                return;
+            }
+
             var closeRequested = Tools.triggerAction(plasmoid, model, targetIndex, actionId, actionArgument);
             if (closeRequested) {
                 root.toggle();
@@ -163,6 +177,70 @@ FocusScope {
             actionMenu.actionList = actionList;
             actionMenu.targetIndex = currentIndex;
             actionMenu.open(x, y);
+        }
+    }
+
+    // Top-edge drag-exit strip: active only inside a folder. Dragging an app
+    // toward the top edge pops the StackView back to root so the app can be
+    // dropped at a specific position on the root grid (drag-out-of-folder).
+    Rectangle {
+        z: 100
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        height: exitDropArea.dragActive ? 72 : 0
+        opacity: exitDropArea.dragActive ? 0.85 : 0
+        radius: Kirigami.Units.smallSpacing
+        Behavior on height { NumberAnimation { duration: Kirigami.Units.shortDuration; easing.type: Easing.OutQuad } }
+        Behavior on opacity { NumberAnimation { duration: Kirigami.Units.shortDuration; easing.type: Easing.OutQuad } }
+
+        Kirigami.Icon {
+            anchors.centerIn: parent
+            width: Kirigami.Units.iconSizes.medium
+            height: width
+            source: "go-up"
+            opacity: 0.8
+        }
+
+        DropArea {
+            id: exitDropArea
+            anchors.fill: parent
+            property bool dragActive: {
+                if (!isInFolder || !kicker.draggedAppData || kicker.draggedAppData.isDirectory) return false;
+                return dragHelper.dragging && kicker.dragSource;
+            }
+
+            onDragEnter: {
+                if (isInFolder && kicker.draggedAppData && !kicker.draggedAppData.isDirectory) {
+                    event.action = Qt.MoveAction;
+                    event.accept(Qt.MoveAction);
+                } else {
+                    event.ignore();
+                }
+            }
+
+            onDragMove: {
+                if (isInFolder && kicker.draggedAppData && !kicker.draggedAppData.isDirectory) {
+                    event.action = Qt.MoveAction;
+                    event.accept(Qt.MoveAction);
+                } else {
+                    event.ignore();
+                }
+            }
+
+            onDrop: {
+                if (isInFolder && kicker.draggedAppData && !kicker.draggedAppData.isDirectory) {
+                    var storageId = kicker.draggedAppData.storageId;
+                    appsGrid.tryExitDirectory();
+                    // After popping to root, place the app at the end of the root
+                    // grid (the cursor position on root is unknowable from here since
+                    // the drop happened on the folder view).
+                    drawerModel.removeAppFromFolder(storageId);
+                    event.accept(Qt.MoveAction);
+                } else {
+                    event.ignore();
+                }
+            }
         }
     }
 
@@ -195,8 +273,11 @@ FocusScope {
                 dropArea.clearDropTarget();
             }
 
-            if (item && item.isDirectory && kicker.draggedAppData && !kicker.draggedAppData.isDirectory) {
-                // Hovering an app over a folder: mark it as the drop target.
+            if (item && item.isDirectory && item !== kicker.dragSource && kicker.draggedAppData) {
+                // Drop onto a folder = put the dragged entry inside it. Works for
+                // apps and for folders (nesting) — layout.js rejects a folder into
+                // its own subtree, so we highlight optimistically and let the drop
+                // no-op in that rare case.
                 event.action = Qt.CopyAction;
                 event.accept(Qt.CopyAction);
                 if (!dropArea.currentDropTarget) {
@@ -204,14 +285,11 @@ FocusScope {
                     item.isDropTarget = true;
                 }
             } else if (!item && kicker.draggedAppData && !kicker.draggedAppData.isDirectory && appsGrid.isAtRoot) {
-                // Empty root space: dropping here pulls the app out of its folder.
                 event.action = Qt.CopyAction;
                 event.accept(Qt.CopyAction);
             } else if (item && item != kicker.dragSource && kicker.dragSource
                        && kicker.dragSource.parent == gridView.contentItem
                        && "moveRow" in gridView.model) {
-                // Dragging within a single grid: live-reorder. The model's
-                // moveRow moves the row and persists the new order.
                 gridView.model.moveRow(kicker.dragSource.itemIndex, item.itemIndex);
                 event.action = Qt.MoveAction;
                 event.accept(Qt.MoveAction);
@@ -230,12 +308,13 @@ FocusScope {
             var cPos = mapToItem(gridView.contentItem, event.x, event.y);
             var item = gridView.itemAt(cPos.x, cPos.y);
 
-            if (item && item.isDirectory && kicker.draggedAppData && !kicker.draggedAppData.isDirectory) {
-                // Drop an app onto a folder.
-                drawerModel.moveAppToFolder(kicker.draggedAppData.storageId, item.folderId);
+            if (item && item.isDirectory && item !== kicker.dragSource && kicker.draggedAppData) {
+                // storageId carries the app id; for a dragged folder it's empty,
+                // so fall back to the folder's own id as the moved entry.
+                var draggedId = kicker.draggedAppData.storageId || kicker.dragSource.folderId;
+                drawerModel.moveAppToFolder(draggedId, item.folderId);
                 event.accept(Qt.CopyAction);
             } else if (!item && kicker.draggedAppData && !kicker.draggedAppData.isDirectory && appsGrid.isAtRoot) {
-                // Drop an app onto empty root space: pull it out of its folder.
                 drawerModel.removeAppFromFolder(kicker.draggedAppData.storageId);
                 event.accept(Qt.CopyAction);
             }

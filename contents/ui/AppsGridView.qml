@@ -105,7 +105,8 @@ FocusScope {
             iconSize: appsGrid.iconSize
 
             model: appsGrid.model
-            
+            isInFolder: true
+
             dragEnabled: true
             hoverEnabled: true
             layer.enabled: true

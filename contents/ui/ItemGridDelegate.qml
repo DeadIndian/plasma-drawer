@@ -109,7 +109,16 @@ Item {
             actionId: "_plasmaDrawer_rename",
             actionArgument: { url: model.url.toString(), isDirectory: isDirectory }
         });
-        
+
+        if (isDirectory) {
+            newActions.push({
+                text: i18n("Delete Folder"),
+                icon: "edit-delete",
+                actionId: "_plasmaDrawer_deleteFolder",
+                actionArgument: { folderId: folderId }
+            });
+        }
+
         return newActions;
     }
 

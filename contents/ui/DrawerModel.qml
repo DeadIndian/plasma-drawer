@@ -397,8 +397,10 @@ QtObject {
 
     // --- mutators (public API mirrors the old MenuEditorBackend) ------------
 
+    // Move an app OR a folder into a folder. layout.js rejects moving a folder
+    // into itself or a descendant (cycle guard).
     function moveAppToFolder(storageId, folderId /*, oldFolderId */) {
-        if (Layout.isFolderId(storageId)) return; // never nest folders
+        if (storageId === folderId) return;
         _commit(Layout.moveAppToFolder(_doc(), storageId, folderId));
     }
 
@@ -413,8 +415,8 @@ QtObject {
         _commit(Layout.removeAppFromFolderAt(_doc(), _allApps, storageId, index));
     }
 
-    function createFolder(folderName /*, parentFolderId */, seedApps) {
-        var res = Layout.createFolder(_doc(), folderName, seedApps);
+    function createFolder(folderName, parentFolderId, seedApps) {
+        var res = Layout.createFolder(_doc(), folderName, seedApps, parentFolderId || "");
         _commit(res.doc);
         return res.folderId;
     }
@@ -513,8 +515,13 @@ QtObject {
                 return drawerModel._launch(item.favoriteId, actionId, argument);
             }
 
+            // A folder can now contain subfolders, so hand back the child model
+            // for a folder row (same as the root model) instead of always null.
             function modelForRow(index) {
-                return null; // folders are one level deep
+                if (index < 0 || index >= count) return null;
+                var item = get(index);
+                if (!item.hasChildren) return null;
+                return drawerModel._folderModel(item.folderId);
             }
 
             // Same live-move-then-persist approach as the root grid (see rootModelImpl.moveRow).
