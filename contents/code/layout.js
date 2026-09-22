@@ -172,6 +172,33 @@ function _findFolder(doc, folderId) {
     return null;
 }
 
+// The id list a folder currently lives in: its parent folder's `apps`, or
+// `rootOrder` if it sits at root. Returns null if the folder isn't placed
+// anywhere (shouldn't happen for a well-formed doc). Used to re-parent orphans
+// on delete and to detect the "root" case.
+function _findParentList(doc, folderId) {
+    if (doc.rootOrder.indexOf(folderId) !== -1) return doc.rootOrder;
+    for (var i = 0; i < doc.folders.length; ++i) {
+        if (doc.folders[i].apps.indexOf(folderId) !== -1) return doc.folders[i].apps;
+    }
+    return null;
+}
+
+// True if `maybeChildId` is `folderId` itself or nested (at any depth) inside it.
+// Guards against creating a cycle when a folder is dragged into its own subtree.
+function _isDescendant(doc, folderId, maybeChildId) {
+    if (folderId === maybeChildId) return true;
+    var folder = _findFolder(doc, folderId);
+    if (!folder) return false;
+    for (var i = 0; i < folder.apps.length; ++i) {
+        var childId = folder.apps[i];
+        if (!isFolderId(childId)) continue;
+        if (childId === maybeChildId) return true;
+        if (_isDescendant(doc, childId, maybeChildId)) return true;
+    }
+    return false;
+}
+
 function _removeFromArray(arr, value) {
     var idx = arr.indexOf(value);
     if (idx !== -1) arr.splice(idx, 1);
@@ -274,12 +301,17 @@ function _visibleFolderCount(folder, map, hidden) {
     var n = 0;
     for (var i = 0; i < folder.apps.length; ++i) {
         var sid = folder.apps[i];
-        if (map[sid] && !hidden[sid]) n++;
+        // Nested folders always count as one entry; apps count only if
+        // installed and not hidden.
+        if (isFolderId(sid)) n++;
+        else if (map[sid] && !hidden[sid]) n++;
     }
     return n;
 }
 
-// Resolve one folder into ordered app entries (skips hidden / uninstalled).
+// Resolve one folder into ordered entries. Like resolveRoot, a folder's child
+// list may hold both apps and (sub)folder ids, so we emit folder entries for
+// nested folders and app entries for apps (skipping hidden / uninstalled).
 function resolveFolder(doc, folderId, allApps) {
     var folder = _findFolder(doc, folderId);
     if (!folder) return [];
@@ -290,17 +322,35 @@ function resolveFolder(doc, folderId, allApps) {
     var out = [];
     for (var i = 0; i < folder.apps.length; ++i) {
         var sid = folder.apps[i];
-        if (map[sid] && !hidden[sid]) out.push(_appEntry(doc, map[sid]));
+        if (isFolderId(sid)) {
+            var sub = _findFolder(doc, sid);
+            if (sub) {
+                out.push({
+                    type: "folder",
+                    id: sub.id,
+                    name: sub.name || "",
+                    icon: sub.icon || "folder",
+                    count: _visibleFolderCount(sub, map, hidden)
+                });
+            }
+        } else if (map[sid] && !hidden[sid]) {
+            out.push(_appEntry(doc, map[sid]));
+        }
     }
     return out;
 }
 
 // --- mutators (return a NEW document) -------------------------------------
 
+// Move an entry (app OR folder) into a folder. When the entry is itself a
+// folder, reject the move if the target is the folder itself or one of its
+// descendants — that would create a cycle (a folder living inside its own
+// subtree). Apps are always fine.
 function moveAppToFolder(doc, storageId, folderId) {
     var d = _clone(doc);
     var folder = _findFolder(d, folderId);
     if (!folder) return d;
+    if (isFolderId(storageId) && _isDescendant(d, storageId, folderId)) return d;
     _detachApp(d, storageId);
     if (folder.apps.indexOf(storageId) === -1) folder.apps.push(storageId);
     return d;
@@ -351,9 +401,11 @@ function removeAppFromFolderAt(doc, allApps, storageId, index) {
     return d;
 }
 
-// Create a folder at root. `seedApp` (optional) is dropped into it immediately —
-// this is the drag-app-onto-app "make a folder" gesture. Returns { doc, folderId }.
-function createFolder(doc, name, seedApps) {
+// Create a folder. `seedApps` (optional) are dropped into it immediately — the
+// drag-app-onto-app "make a folder" gesture. `parentFolderId` (optional) nests
+// the new folder inside that folder; omitted/empty/unknown places it at root.
+// Returns { doc, folderId }.
+function createFolder(doc, name, seedApps, parentFolderId) {
     var d = _clone(doc);
     // Allocate a stable unique id. Scan existing ids for the max numeric suffix.
     var maxId = 0;
@@ -370,7 +422,12 @@ function createFolder(doc, name, seedApps) {
         }
     }
     d.folders.push({ id: newId, name: name || "New Folder", icon: "folder", apps: apps });
-    d.rootOrder.push(newId);
+    var parent = parentFolderId ? _findFolder(d, parentFolderId) : null;
+    if (parent) {
+        parent.apps.push(newId);
+    } else {
+        d.rootOrder.push(newId);
+    }
     return { doc: d, folderId: newId };
 }
 
@@ -449,20 +506,25 @@ function renameFolder(doc, folderId, newName) {
     return d;
 }
 
-// Delete a folder; its apps fall back to root (they stay installed).
+// Delete a folder; its contents (apps AND subfolders) fall back to wherever the
+// folder itself lived — its parent folder, or root if it sat at root. Apps stay
+// installed; subfolders keep their own contents, they just move up one level.
 function deleteFolder(doc, folderId) {
     var d = _clone(doc);
+    // Where the folder currently lives — orphans are re-parented here so a nested
+    // folder's contents don't jump all the way to root on delete.
+    var destList = _findParentList(d, folderId) || d.rootOrder;
     for (var i = 0; i < d.folders.length; ++i) {
         if (d.folders[i].id === folderId) {
             var orphans = d.folders[i].apps;
             for (var a = 0; a < orphans.length; ++a) {
-                if (d.rootOrder.indexOf(orphans[a]) === -1) d.rootOrder.push(orphans[a]);
+                if (destList.indexOf(orphans[a]) === -1) destList.push(orphans[a]);
             }
             d.folders.splice(i, 1);
             break;
         }
     }
-    _removeFromArray(d.rootOrder, folderId);
+    _removeFromArray(destList, folderId);
     return d;
 }
 
