@@ -1,6 +1,6 @@
 <div align="center">
 
-# Plasma Drawer
+# Deads Plasma Drawer
 
 ### A fullscreen, customizable application launcher for KDE Plasma 6
 
@@ -40,7 +40,7 @@ Organize your apps into nestable folders, drag and drop to rearrange, and search
 
 ## 🎯 About
 
-Plasma Drawer is a fullscreen application launcher for the KDE Plasma 6 desktop. It replaces the default menu with a spacious grid you fully control: group apps into folders of arbitrary depth, rename or hide entries, and reorder everything by dragging.
+Deads Plasma Drawer is a fullscreen application launcher for the KDE Plasma 6 desktop. It replaces the default menu with a spacious grid you fully control: group apps into folders of arbitrary depth, rename or hide entries, and reorder everything by dragging.
 
 It is a **pure QML/JS plasmoid** — no compiled C++ backend. Your entire layout (folders, ordering, renames, hidden apps) lives as a single JSON document in the widget's own config, so nothing touches global system menu files. That means no build step, no root, and no `kbuildsycoca` runs. See [SPEC.md](SPEC.md) for the architecture.
 

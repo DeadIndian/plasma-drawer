@@ -2,7 +2,7 @@
     "KPackageStructure": "Plasma/Applet",
     "KPlugin": {
         "Id": "io.github.deadindian.plasma-drawer",
-        "Name": "Plasma Drawer",
+        "Name": "Deads Plasma Drawer",
         "Description": "A fullscreen customizable launcher with application directories and krunner-like search",
         "Version": "2.0.2",
         "License": "GPL-3.0-or-later",
